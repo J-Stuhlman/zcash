@@ -6,7 +6,7 @@
 
 #include "memusage.h"
 #include "random.h"
-
+#include "policy/fees.h"
 #include <assert.h>
 
 /**
@@ -442,6 +442,14 @@ double CCoinsViewCache::GetPriority(const CTransaction &tx, int nHeight) const
 {
     if (tx.IsCoinBase())
         return 0.0;
+    // Joinsplits do not reveal any information about the value or age of a note, so we
+    // cannot apply the priority algorithm used for transparent utxos.  Instead, we just
+    // use the maximum priority whenever a transaction contains any JoinSplits.
+    // (Note that coinbase transactions cannot contain JoinSplits.)
+    // FIXME: this logic is partially duplicated between here and CreateNewBlock in miner.cpp.
+    if (tx.vjoinsplit.size() > 0) {
+        return MAX_PRIORITY;
+      }  
     double dResult = 0.0;
     BOOST_FOREACH(const CTxIn& txin, tx.vin)
     {
