@@ -16,10 +16,12 @@ void TxConfirmStats::Initialize(std::vector<double>& defaultBuckets,
 {
     decay = _decay;
     dataTypeString = _dataTypeString;
-    for (unsigned int i = 0; i < defaultBuckets.size(); i++) {
-        buckets.push_back(defaultBuckets[i]);
-        bucketMap[defaultBuckets[i]] = i;
+   buckets.insert(buckets.end(), defaultBuckets.begin(), defaultBuckets.end());
+	buckets.push_back(std::numeric_limits<double>::infinity());
+  for (unsigned int i = 0; i < buckets.size(); i++) {
+	bucketMap[buckets[i]] = i;  
     }
+	
     confAvg.resize(maxConfirms);
     curBlockConf.resize(maxConfirms);
     unconfTxs.resize(maxConfirms);
@@ -34,6 +36,13 @@ void TxConfirmStats::Initialize(std::vector<double>& defaultBuckets,
     txCtAvg.resize(buckets.size());
     curBlockVal.resize(buckets.size());
     avg.resize(buckets.size());
+}
+
+unsigned int TxConfirmStats::FindBucketIndex(double val)
+{
+	 auto it = bucketMap.lower_bound(val);
+	 assert(it != bucketMap.end());
+	return it->second;
 }
 
 // Zero out the data for the current block
@@ -55,7 +64,7 @@ void TxConfirmStats::Record(int blocksToConfirm, double val)
     // blocksToConfirm is 1-based
     if (blocksToConfirm < 1)
         return;
-    unsigned int bucketindex = bucketMap.lower_bound(val)->second;
+    unsigned int bucketindex = FindBucketIndex(val);
     for (size_t i = blocksToConfirm; i <= curBlockConf.size(); i++) {
         curBlockConf[i - 1][bucketindex]++;
     }
@@ -246,7 +255,7 @@ void TxConfirmStats::Read(CAutoFile& filein)
 
 unsigned int TxConfirmStats::NewTx(unsigned int nBlockHeight, double val)
 {
-    unsigned int bucketindex = bucketMap.lower_bound(val)->second;
+    unsigned int bucketindex = FindBucketIndex(val);
     unsigned int blockIndex = nBlockHeight % unconfTxs.size();
     unconfTxs[blockIndex][bucketindex]++;
     LogPrint("estimatefee", "adding to %s", dataTypeString);
